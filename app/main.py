@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -33,6 +34,14 @@ fastapi_app.add_middleware(
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(_static_dir, exist_ok=True)
 fastapi_app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+
+@fastapi_app.get("/", response_class=HTMLResponse)
+async def root():
+    index_path = os.path.join(_static_dir, "index.html")
+    with open(index_path, encoding="utf-8") as f:
+        return f.read()
+
 
 fastapi_app.include_router(auth_router)
 fastapi_app.include_router(users_router)
