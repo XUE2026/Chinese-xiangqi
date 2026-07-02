@@ -1,0 +1,13 @@
+i/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+*.db
+.kill_flag
+*.flag
+dist/
+*.zip
+.Python
+.pytest_cache/
