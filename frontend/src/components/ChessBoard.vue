@@ -14,7 +14,7 @@ const props = defineProps({
   },
   mySide: {
     type: String,
-    default: null, // 'w' = 红方(下方), 'b' = 黑方(上方)
+    default: null,
   },
   isMyTurn: {
     type: Boolean,
@@ -31,14 +31,13 @@ const emit = defineEmits(['move'])
 const canvas = ref(null)
 const canvasWidth = 540
 const canvasHeight = 600
-const grid = 60 // 每格60px
+const grid = 60
 const offsetX = 30
 const offsetY = 30
 
 const selectedPiece = ref(null)
 const boardState = ref([])
 
-// 棋子名称映射
 const pieceNames = {
   'r': '车', 'n': '马', 'b': '象', 'a': '士', 'k': '将',
   'c': '炮', 'p': '卒',
@@ -46,7 +45,6 @@ const pieceNames = {
   'C': '炮', 'P': '兵',
 }
 
-// 解析FEN
 function parseFen(fen) {
   const rows = fen.split('/')
   const board = []
@@ -71,7 +69,6 @@ function parseFen(fen) {
   return board
 }
 
-// 绘制棋盘
 function drawBoard(ctx) {
   ctx.fillStyle = '#f4d9a4'
   ctx.fillRect(0, 0, canvasWidth, canvasHeight)
@@ -79,7 +76,6 @@ function drawBoard(ctx) {
   ctx.strokeStyle = '#8b4513'
   ctx.lineWidth = 1
 
-  // 绘制横线
   for (let i = 0; i < 10; i++) {
     ctx.beginPath()
     ctx.moveTo(offsetX, offsetY + i * grid)
@@ -87,7 +83,6 @@ function drawBoard(ctx) {
     ctx.stroke()
   }
 
-  // 绘制竖线
   for (let i = 0; i < 9; i++) {
     if (i === 0 || i === 8) {
       ctx.beginPath()
@@ -95,12 +90,10 @@ function drawBoard(ctx) {
       ctx.lineTo(offsetX + i * grid, offsetY + 9 * grid)
       ctx.stroke()
     } else {
-      // 上半部分
       ctx.beginPath()
       ctx.moveTo(offsetX + i * grid, offsetY)
       ctx.lineTo(offsetX + i * grid, offsetY + 4 * grid)
       ctx.stroke()
-      // 下半部分
       ctx.beginPath()
       ctx.moveTo(offsetX + i * grid, offsetY + 5 * grid)
       ctx.lineTo(offsetX + i * grid, offsetY + 9 * grid)
@@ -108,7 +101,6 @@ function drawBoard(ctx) {
     }
   }
 
-  // 绘制九宫格斜线
   ctx.beginPath()
   ctx.moveTo(offsetX + 3 * grid, offsetY)
   ctx.lineTo(offsetX + 5 * grid, offsetY + 2 * grid)
@@ -123,7 +115,6 @@ function drawBoard(ctx) {
   ctx.lineTo(offsetX + 3 * grid, offsetY + 9 * grid)
   ctx.stroke()
 
-  // 楚河汉界
   ctx.font = '24px serif'
   ctx.fillStyle = '#8b4513'
   ctx.textAlign = 'center'
@@ -131,37 +122,92 @@ function drawBoard(ctx) {
   ctx.fillText('汉 界', offsetX + 6 * grid, offsetY + 4.5 * grid + 12)
 }
 
-// 绘制棋子
 function drawPiece(ctx, piece, row, col, isSelected) {
   const x = offsetX + col * grid
   const y = offsetY + row * grid
-
-  // 棋子背景
-  ctx.beginPath()
-  ctx.arc(x, y, 26, 0, Math.PI * 2)
+  const radius = 26
+  const liftY = isSelected ? -8 : 0
 
   if (isSelected) {
-    ctx.fillStyle = '#ffeb3b'
-  } else if (piece.side === 'w') {
-    ctx.fillStyle = '#fff5e6'
-  } else {
-    ctx.fillStyle = '#e6f0fa'
+    ctx.beginPath()
+    ctx.arc(x, y + 8, radius - 2, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'
+    ctx.fill()
   }
+
+  const isRed = piece.side === 'w'
+  const baseColor = isRed ? '#c41e3a' : '#1a1a1a'
+  const bgLight = isRed ? '#fff5e6' : '#e6f0fa'
+  const bgDark = isRed ? '#ffe4c4' : '#d4e0f0'
+
+  ctx.beginPath()
+  ctx.ellipse(x, y + liftY, radius, radius - 3, 0, 0, Math.PI * 2)
+
+  const gradient = ctx.createRadialGradient(x - 6, y + liftY - 6, 0, x, y + liftY, radius)
+  if (isRed) {
+    gradient.addColorStop(0, '#fffcf7')
+    gradient.addColorStop(0.3, '#fff5e6')
+    gradient.addColorStop(0.7, '#ffe4c4')
+    gradient.addColorStop(1, '#f5d0a0')
+  } else {
+    gradient.addColorStop(0, '#f8fafc')
+    gradient.addColorStop(0.3, '#e6f0fa')
+    gradient.addColorStop(0.7, '#d4e0f0')
+    gradient.addColorStop(1, '#b8c8d8')
+  }
+  ctx.fillStyle = gradient
   ctx.fill()
 
-  ctx.strokeStyle = piece.side === 'w' ? '#c41e3a' : '#1a1a1a'
+  ctx.beginPath()
+  ctx.ellipse(x, y + liftY, radius, radius - 3, 0, 0, Math.PI * 2)
+  ctx.strokeStyle = baseColor
   ctx.lineWidth = 2
   ctx.stroke()
 
-  // 棋子文字
-  ctx.font = 'bold 20px serif'
-  ctx.fillStyle = piece.side === 'w' ? '#c41e3a' : '#1a1a1a'
+  ctx.beginPath()
+  ctx.ellipse(x, y + liftY - 4, radius - 8, radius - 10, 0, 0, Math.PI * 2)
+  ctx.strokeStyle = isRed ? '#e85a6c' : '#4a5568'
+  ctx.lineWidth = 1
+  ctx.stroke()
+
+  ctx.beginPath()
+  ctx.arc(x - 8, y + liftY - 8, 5, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.arc(x - 5, y + liftY - 5, 3, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'
+  ctx.fill()
+
+  if (isSelected) {
+    ctx.beginPath()
+    ctx.ellipse(x, y + liftY, radius + 4, radius + 1, 0, 0, Math.PI * 2)
+    ctx.strokeStyle = '#ffeb3b'
+    ctx.lineWidth = 3
+    ctx.stroke()
+
+    ctx.beginPath()
+    ctx.ellipse(x, y + liftY, radius + 7, radius + 4, 0, 0, Math.PI * 2)
+    ctx.strokeStyle = 'rgba(255,235,59,0.3)'
+    ctx.lineWidth = 6
+    ctx.stroke()
+  }
+
+  ctx.save()
+  ctx.font = 'bold 22px "STKaiti", "KaiTi", serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(pieceNames[piece.type] || piece.type, x, y)
+
+  ctx.shadowColor = 'rgba(0,0,0,0.2)'
+  ctx.shadowOffsetX = 1
+  ctx.shadowOffsetY = 2
+  ctx.fillStyle = baseColor
+  ctx.fillText(pieceNames[piece.type] || piece.type, x, y + liftY)
+
+  ctx.restore()
 }
 
-// 绘制所有棋子
 function drawPieces(ctx) {
   for (let row = 0; row < 10; row++) {
     for (let col = 0; col < 9; col++) {
@@ -176,15 +222,14 @@ function drawPieces(ctx) {
   }
 }
 
-// 完整绘制
 function draw() {
   if (!canvas.value) return
   const ctx = canvas.value.getContext('2d')
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight)
   drawBoard(ctx)
   drawPieces(ctx)
 }
 
-// 点击处理
 function handleClick(e) {
   if (!props.isMyTurn && !props.canDrag) return
 
@@ -200,12 +245,9 @@ function handleClick(e) {
   const clickedPiece = boardState.value[row]?.[col]
 
   if (selectedPiece.value) {
-    // 已选中棋子,尝试移动
     if (clickedPiece && clickedPiece.side === selectedPiece.value.piece.side) {
-      // 点击自己的棋子,切换选中
       selectedPiece.value = { row, col, piece: clickedPiece }
     } else {
-      // 尝试移动到目标位置
       emit('move', {
         from: [selectedPiece.value.row, selectedPiece.value.col],
         to: [row, col],
@@ -213,13 +255,10 @@ function handleClick(e) {
       selectedPiece.value = null
     }
   } else {
-    // 未选中棋子
     if (clickedPiece) {
-      // 检查是否是自己的棋子
       if (props.mySide && clickedPiece.side === props.mySide) {
         selectedPiece.value = { row, col, piece: clickedPiece }
       } else if (props.canDrag) {
-        // 管理员可以拖拽任意棋子
         selectedPiece.value = { row, col, piece: clickedPiece }
       }
     }
@@ -228,20 +267,17 @@ function handleClick(e) {
   draw()
 }
 
-// 初始化
 onMounted(() => {
   boardState.value = parseFen(props.fen)
   nextTick(() => draw())
 })
 
-// 监听FEN变化
 watch(() => props.fen, (newFen) => {
   boardState.value = parseFen(newFen)
   selectedPiece.value = null
   nextTick(() => draw())
 })
 
-// 监听回合变化
 watch(() => props.isMyTurn, () => {
   if (!props.isMyTurn) {
     selectedPiece.value = null
@@ -258,8 +294,9 @@ watch(() => props.isMyTurn, () => {
 }
 
 canvas {
-  border: 3px solid #8b4513;
-  border-radius: 4px;
+  border: 4px solid #5d3a1a;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2);
   cursor: pointer;
 }
 </style>
