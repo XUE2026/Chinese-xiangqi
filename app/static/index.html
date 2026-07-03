@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中国象棋对战平台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #f5f0e6; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        h1 { text-align: center; color: #8b4513; margin-bottom: 30px; }
+        .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; color: #333; font-weight: 500; }
+        input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        button { width: 100%; padding: 12px; background: #8b4513; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #6b3410; }
+        .status { padding: 12px; border-radius: 6px; margin-top: 12px; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .load-pages { margin-top: 16px; }
+        .load-page { padding: 16px; text-align: center; font-size: 18px; color: #8b4513; }
+        .chess-board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 0; width: 100%; max-width: 450px; margin: 20px auto; border: 2px solid #8b4513; background: #f4d9a4; }
+        .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 1px solid rgba(139,69,19,0.2); }
+        .cell.red { color: #c41e3a; }
+        .cell.black { color: #1a1a1a; }
+        .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #333; border-left: 4px solid #8b4513; padding-left: 12px; }
+        .api-list { list-style: none; }
+        .api-list li { padding: 8px 0; border-bottom: 1px solid #eee; font-family: monospace; font-size: 13px; }
+        .api-list .method { display: inline-block; width: 60px; font-weight: bold; color: #8b4513; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>中国象棋对战平台</h1>
+        
+        <div class="card">
+            <div class="section-title">测试登录</div>
+            <div class="form-group">
+                <label>账号</label>
+                <input type="text" id="account" placeholder="请输入账号" />
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="password" placeholder="请输入密码" />
+            </div>
+            <div class="form-group">
+                <label>OTP (可选)</label>
+                <input type="text" id="otp" placeholder="临时用户必填" />
+            </div>
+            <button onclick="login()">登录</button>
+            <div id="login-status"></div>
+            <div id="load-pages" class="load-pages"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">初始棋盘</div>
+            <div class="chess-board" id="board"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">API 接口</div>
+            <ul class="api-list">
+                <li><span class="method">POST</span>/auth/login - 登录</li>
+                <li><span class="method">POST</span>/auth/logout - 登出</li>
+                <li><span class="method">GET</span>/admin/users - 用户列表</li>
+                <li><span class="method">POST</span>/admin/games - 创建棋局</li>
+                <li><span class="method">POST</span>/admin/debug/toggle - 调试模式</li>
+                <li><span class="method">WS</span>/game - Socket.IO 对局</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const pieces = {
+            'r': '俥', 'n': '马', 'b': '象', 'a': '士', 'k': '将', 'c': '炮', 'p': '卒',
+            'R': '车', 'N': '马', 'B': '相', 'A': '仕', 'K': '帅', 'C': '炮', 'P': '兵'
+        };
+        const initialFen = "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR";
+        
+        function renderBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            const rows = initialFen.split('/');
+            rows.forEach(row => {
+                let count = 0;
+                for (let ch of row) {
+                    if (ch >= '0' && ch <= '9') {
+                        count += parseInt(ch);
+                        for (let i = 0; i < parseInt(ch); i++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'cell';
+                            board.appendChild(cell);
+                        }
+                    } else {
+                        count++;
+                        const cell = document.createElement('div');
+                        cell.className = 'cell ' + (ch === ch.toUpperCase() ? 'red' : 'black');
+                        cell.textContent = pieces[ch] || ch;
+                        board.appendChild(cell);
+                    }
+                }
+            });
+        }
+        renderBoard();
+
+        async function login() {
+            const account = document.getElementById('account').value;
+            const password = document.getElementById('password').value;
+            const otp = document.getElementById('otp').value;
+            const statusEl = document.getElementById('login-status');
+            const pagesEl = document.getElementById('load-pages');
+            
+            statusEl.className = 'status';
+            statusEl.textContent = '登录中...';
+            pagesEl.innerHTML = '';
+            
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_name: account,
+                        password: password,
+                        otp_code: otp || undefined
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'ok') {
+                    statusEl.className = 'status success';
+                    statusEl.textContent = '登录成功！Token: ' + data.access_token.substring(0, 30) + '...';
+                    if (data.load_pages) {
+                        data.load_pages.forEach((page, idx) => {
+                            setTimeout(() => {
+                                pagesEl.innerHTML = '<div class="load-page">' + page.text + '</div>';
+                            }, idx * 1500);
+                        });
+                    }
+                } else {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = '登录失败: ' + (data.detail || data.msg);
+                }
+            } catch (e) {
+                statusEl.className = 'status error';
+                statusEl.textContent = '错误: ' + e.message;
+            }
+        }
+    </script>
+</body>
+</html>
